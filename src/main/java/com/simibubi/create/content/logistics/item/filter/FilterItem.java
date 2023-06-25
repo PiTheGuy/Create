@@ -11,6 +11,7 @@ import com.simibubi.create.AllKeys;
 import com.simibubi.create.content.contraptions.processing.EmptyingByBasin;
 import com.simibubi.create.content.logistics.item.filter.AttributeFilterContainer.WhitelistMode;
 import com.simibubi.create.foundation.item.ItemDescription;
+import com.simibubi.create.foundation.utility.Components;
 import com.simibubi.create.foundation.utility.Lang;
 
 import net.minecraft.ChatFormatting;
@@ -18,8 +19,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -76,7 +75,7 @@ public class FilterItem extends Item implements MenuProvider {
 			List<Component> makeSummary = makeSummary(stack);
 			if (makeSummary.isEmpty())
 				return;
-			ItemDescription.add(tooltip, new TextComponent(" "));
+			ItemDescription.add(tooltip, Components.literal(" "));
 			ItemDescription.add(tooltip, makeSummary);
 		}
 	}
@@ -89,18 +88,18 @@ public class FilterItem extends Item implements MenuProvider {
 			boolean blacklist = filter.getOrCreateTag()
 				.getBoolean("Blacklist");
 
-			list.add((blacklist ? Lang.translate("gui.filter.deny_list") : Lang.translate("gui.filter.allow_list")).withStyle(ChatFormatting.GOLD));
+			list.add((blacklist ? Lang.translateDirect("gui.filter.deny_list") : Lang.translateDirect("gui.filter.allow_list")).withStyle(ChatFormatting.GOLD));
 			int count = 0;
 			for (int i = 0; i < filterItems.getSlots(); i++) {
 				if (count > 3) {
-					list.add(new TextComponent("- ...").withStyle(ChatFormatting.DARK_GRAY));
+					list.add(Components.literal("- ...").withStyle(ChatFormatting.DARK_GRAY));
 					break;
 				}
 
 				ItemStack filterStack = filterItems.getStackInSlot(i);
 				if (filterStack.isEmpty())
 					continue;
-				list.add(new TextComponent("- ").append(filterStack.getHoverName()).withStyle(ChatFormatting.GRAY));
+				list.add(Components.literal("- ").append(filterStack.getHoverName()).withStyle(ChatFormatting.GRAY));
 				count++;
 			}
 
@@ -112,10 +111,10 @@ public class FilterItem extends Item implements MenuProvider {
 			WhitelistMode whitelistMode = WhitelistMode.values()[filter.getOrCreateTag()
 				.getInt("WhitelistMode")];
 			list.add((whitelistMode == WhitelistMode.WHITELIST_CONJ
-				? Lang.translate("gui.attribute_filter.allow_list_conjunctive")
+				? Lang.translateDirect("gui.attribute_filter.allow_list_conjunctive")
 				: whitelistMode == WhitelistMode.WHITELIST_DISJ
-					? Lang.translate("gui.attribute_filter.allow_list_disjunctive")
-					: Lang.translate("gui.attribute_filter.deny_list")).withStyle(ChatFormatting.GOLD));
+					? Lang.translateDirect("gui.attribute_filter.allow_list_disjunctive")
+					: Lang.translateDirect("gui.attribute_filter.deny_list")).withStyle(ChatFormatting.GOLD));
 
 			int count = 0;
 			ListTag attributes = filter.getOrCreateTag()
@@ -125,10 +124,10 @@ public class FilterItem extends Item implements MenuProvider {
 				ItemAttribute attribute = ItemAttribute.fromNBT(compound);
 				boolean inverted = compound.getBoolean("Inverted");
 				if (count > 3) {
-					list.add(new TextComponent("- ...").withStyle(ChatFormatting.DARK_GRAY));
+					list.add(Components.literal("- ...").withStyle(ChatFormatting.DARK_GRAY));
 					break;
 				}
-				list.add(new TextComponent("- ").append(attribute.format(inverted)));
+				list.add(Components.literal("- ").append(attribute.format(inverted)));
 				count++;
 			}
 
@@ -165,7 +164,7 @@ public class FilterItem extends Item implements MenuProvider {
 
 	@Override
 	public Component getDisplayName() {
-		return new TranslatableComponent(getDescriptionId());
+		return getDescription();
 	}
 
 	public static ItemStackHandler getFilterItems(ItemStack stack) {

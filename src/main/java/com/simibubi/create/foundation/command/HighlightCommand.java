@@ -7,13 +7,13 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.simibubi.create.content.contraptions.components.structureMovement.AssemblyException;
 import com.simibubi.create.content.contraptions.components.structureMovement.IDisplayAssemblyExceptions;
 import com.simibubi.create.foundation.networking.AllPackets;
+import com.simibubi.create.foundation.utility.Components;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -28,7 +28,6 @@ public class HighlightCommand {
 
 	public static ArgumentBuilder<CommandSourceStack, ?> register() {
 		return Commands.literal("highlight")
-			.requires(cs -> cs.hasPermission(2))
 			.then(Commands.argument("pos", BlockPosArgument.blockPos())
 				.then(Commands.argument("players", EntityArgument.players())
 					.executes(ctx -> {
@@ -61,7 +60,7 @@ public class HighlightCommand {
 
 	private static void sendMissMessage(CommandSourceStack source) {
 		source.sendSuccess(
-			new TextComponent("Try looking at a Block that has failed to assemble a Contraption and try again."),
+			Components.literal("Try looking at a Block that has failed to assemble a Contraption and try again."),
 			true);
 	}
 
@@ -95,7 +94,7 @@ public class HighlightCommand {
 		}
 
 		if (!exception.hasPosition()) {
-			source.sendSuccess(new TextComponent("Can't highlight a specific position for this issue"), true);
+			source.sendSuccess(Components.literal("Can't highlight a specific position for this issue"), true);
 			return Command.SINGLE_SUCCESS;
 		}
 

@@ -22,6 +22,7 @@ import com.simibubi.create.foundation.utility.Couple;
 import com.simibubi.create.foundation.utility.NBTHelper;
 import com.simibubi.create.foundation.utility.VecHelper;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Direction.Axis;
@@ -75,11 +76,14 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 	public float prevPitch;
 	public float pitch;
 
+	public int nonDamageTicks;
+
 	public OrientedContraptionEntity(EntityType<?> type, Level world) {
 		super(type, world);
 		motionBeforeStall = Vec3.ZERO;
 		attachedExtraInventories = false;
 		isSerializingFurnaceCart = false;
+		nonDamageTicks = 10;
 	}
 
 	public static OrientedContraptionEntity create(Level world, Contraption contraption, Direction initialOrientation) {
@@ -113,8 +117,7 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 	}
 
 	public float getInitialYaw() {
-		return (isInitialOrientationPresent() ? entityData.get(INITIAL_ORIENTATION) : Direction.SOUTH)
-			.toYRot();
+		return (isInitialOrientationPresent() ? entityData.get(INITIAL_ORIENTATION) : Direction.SOUTH).toYRot();
 	}
 
 	@Override
@@ -177,8 +180,7 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 		super.writeAdditional(compound, spawnPacket);
 
 		if (motionBeforeStall != null)
-			compound.put("CachedMotion",
-				newDoubleList(motionBeforeStall.x, motionBeforeStall.y, motionBeforeStall.z));
+			compound.put("CachedMotion", newDoubleList(motionBeforeStall.x, motionBeforeStall.y, motionBeforeStall.z));
 
 		Direction optional = entityData.get(INITIAL_ORIENTATION);
 		if (optional.getAxis()
@@ -200,7 +202,7 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 	@Override
 	public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
 		super.onSyncedDataUpdated(key);
-		if (key == INITIAL_ORIENTATION && isInitialOrientationPresent() && !manuallyPlaced)
+		if (INITIAL_ORIENTATION.equals(key) && isInitialOrientationPresent() && !manuallyPlaced)
 			startAtInitialYaw();
 	}
 
@@ -245,6 +247,8 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 
 	@Override
 	protected void tickContraption() {
+		if (nonDamageTicks > 0)
+			nonDamageTicks--;
 		Entity e = getVehicle();
 		if (e == null)
 			return;
@@ -430,7 +434,7 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 					.normalize()
 					.scale(1));
 		if (fuel < 5 && contraption != null) {
-			ItemStack coal = ItemHelper.extract(contraption.inventory, FUEL_ITEMS, 1, false);
+			ItemStack coal = ItemHelper.extract(contraption.getSharedInventory(), FUEL_ITEMS, 1, false);
 			if (!coal.isEmpty())
 				fuel += 3600;
 		}
@@ -459,15 +463,17 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 	}
 
 	protected void attachInventoriesFromRidingCarts(Entity riding, boolean isOnCoupling, UUID couplingId) {
-		if (isOnCoupling) {
-			Couple<MinecartController> coupledCarts = getCoupledCartsIfPresent();
-			if (coupledCarts == null)
-				return;
-			coupledCarts.map(MinecartController::cart)
-				.forEach(contraption::addExtraInventories);
+		if (!(contraption instanceof MountedContraption mc))
+			return;
+		if (!isOnCoupling) {
+			mc.addExtraInventories(riding);
 			return;
 		}
-		contraption.addExtraInventories(riding);
+		Couple<MinecartController> coupledCarts = getCoupledCartsIfPresent();
+		if (coupledCarts == null)
+			return;
+		coupledCarts.map(MinecartController::cart)
+			.forEach(mc::addExtraInventories);
 	}
 
 	@Override
@@ -487,7 +493,14 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 
 	@Override
 	public Vec3 getAnchorVec() {
-		return new Vec3(getX() - .5, getY(), getZ() - .5);
+		Vec3 anchorVec = super.getAnchorVec();
+		return anchorVec.subtract(.5, 0, .5);
+	}
+	
+	@Override
+	public Vec3 getPrevAnchorVec() {
+		Vec3 prevAnchorVec = super.getPrevAnchorVec();
+		return prevAnchorVec.subtract(.5, 0, .5);
 	}
 
 	@Override
@@ -508,52 +521,48 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 
 	@Override
 	@OnlyIn(Dist.CLIENT)
-	public void doLocalTransforms(float partialTicks, PoseStack[] matrixStacks) {
+	public void applyLocalTransforms(PoseStack matrixStack, float partialTicks) {
 		float angleInitialYaw = getInitialYaw();
 		float angleYaw = getViewYRot(partialTicks);
 		float anglePitch = getViewXRot(partialTicks);
 
-		for (PoseStack stack : matrixStacks)
-			stack.translate(-.5f, 0, -.5f);
+		matrixStack.translate(-.5f, 0, -.5f);
 
 		Entity ridingEntity = getVehicle();
 		if (ridingEntity instanceof AbstractMinecart)
-			repositionOnCart(partialTicks, matrixStacks, ridingEntity);
+			repositionOnCart(matrixStack, partialTicks, ridingEntity);
 		else if (ridingEntity instanceof AbstractContraptionEntity) {
 			if (ridingEntity.getVehicle() instanceof AbstractMinecart)
-				repositionOnCart(partialTicks, matrixStacks, ridingEntity.getVehicle());
+				repositionOnCart(matrixStack, partialTicks, ridingEntity.getVehicle());
 			else
-				repositionOnContraption(partialTicks, matrixStacks, ridingEntity);
+				repositionOnContraption(matrixStack, partialTicks, ridingEntity);
 		}
 
-		for (PoseStack stack : matrixStacks)
-			TransformStack.cast(stack)
-				.nudge(getId())
-				.centre()
-				.rotateY(angleYaw)
-				.rotateZ(anglePitch)
-				.rotateY(angleInitialYaw)
-				.unCentre();
+		TransformStack.cast(matrixStack)
+			.nudge(getId())
+			.centre()
+			.rotateY(angleYaw)
+			.rotateZ(anglePitch)
+			.rotateY(angleInitialYaw)
+			.unCentre();
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	private void repositionOnContraption(float partialTicks, PoseStack[] matrixStacks, Entity ridingEntity) {
+	private void repositionOnContraption(PoseStack matrixStack, float partialTicks, Entity ridingEntity) {
 		Vec3 pos = getContraptionOffset(partialTicks, ridingEntity);
-		for (PoseStack stack : matrixStacks)
-			stack.translate(pos.x, pos.y, pos.z);
+		matrixStack.translate(pos.x, pos.y, pos.z);
 	}
 
 	// Minecarts do not always render at their exact location, so the contraption
 	// has to adjust aswell
 	@OnlyIn(Dist.CLIENT)
-	private void repositionOnCart(float partialTicks, PoseStack[] matrixStacks, Entity ridingEntity) {
+	private void repositionOnCart(PoseStack matrixStack, float partialTicks, Entity ridingEntity) {
 		Vec3 cartPos = getCartOffset(partialTicks, ridingEntity);
 
 		if (cartPos == Vec3.ZERO)
 			return;
 
-		for (PoseStack stack : matrixStacks)
-			stack.translate(cartPos.x, cartPos.y, cartPos.z);
+		matrixStack.translate(cartPos.x, cartPos.y, cartPos.z);
 	}
 
 	@OnlyIn(Dist.CLIENT)
@@ -591,5 +600,11 @@ public class OrientedContraptionEntity extends AbstractContraptionEntity {
 		}
 
 		return Vec3.ZERO;
+	}
+
+	@OnlyIn(Dist.CLIENT)
+	public static void handleRelocationPacket(ContraptionRelocationPacket packet) {
+		if (Minecraft.getInstance().level.getEntity(packet.entityID) instanceof OrientedContraptionEntity oce)
+			oce.nonDamageTicks = 10;
 	}
 }

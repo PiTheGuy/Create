@@ -7,7 +7,6 @@ import static net.minecraft.world.entity.MoverType.SELF;
 import java.util.List;
 
 import com.simibubi.create.AllBlocks;
-import com.simibubi.create.content.contraptions.components.structureMovement.AbstractContraptionEntity;
 import com.simibubi.create.content.contraptions.relays.belt.BeltBlock;
 import com.simibubi.create.content.contraptions.relays.belt.BeltPart;
 import com.simibubi.create.content.contraptions.relays.belt.BeltSlope;
@@ -27,6 +26,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -141,7 +141,7 @@ public class BeltMovementHandler {
 		if (!(entityIn instanceof LivingEntity)
 			|| ((LivingEntity) entityIn).zza == 0 && ((LivingEntity) entityIn).xxa == 0)
 			movement = movement.add(centering);
-		
+
 		float step = entityIn.maxUpStep;
 		if (!isPlayer) 
 			entityIn.maxUpStep = 1;
@@ -196,9 +196,9 @@ public class BeltMovementHandler {
 	}
 
 	public static boolean shouldIgnoreBlocking(Entity me, Entity other) {
-		if (other instanceof AbstractContraptionEntity)
-			return true;
 		if (other instanceof HangingEntity)
+			return true;
+		if (other.getPistonPushReaction() == PushReaction.IGNORE)
 			return true;
 		return isRidingOrBeingRiddenBy(me, other);
 	}

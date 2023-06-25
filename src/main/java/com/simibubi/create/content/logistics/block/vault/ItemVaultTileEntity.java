@@ -112,6 +112,8 @@ public class ItemVaultTileEntity extends SmartTileEntity implements IMultiTileCo
 		lastKnownPos = worldPosition;
 	}
 
+	@SuppressWarnings("unchecked")
+	@Override
 	public ItemVaultTileEntity getControllerTE() {
 		if (isController())
 			return this;
@@ -271,7 +273,7 @@ public class ItemVaultTileEntity extends SmartTileEntity implements IMultiTileCo
 	public void notifyMultiUpdated() {
 		BlockState state = this.getBlockState();
 		if (ItemVaultBlock.isVault(state)) { // safety
-			level.setBlock(getBlockPos(), state.setValue(ItemVaultBlock.LARGE, radius > 2), 22);
+			level.setBlock(getBlockPos(), state.setValue(ItemVaultBlock.LARGE, radius > 2), 6);
 		}
 		itemCapability.invalidate();
 		setChanged();

@@ -4,6 +4,7 @@ import javax.annotation.Nonnull;
 
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.contraptions.components.tracks.ControllerRailBlock;
+import com.simibubi.create.foundation.advancement.AdvancementBehaviour;
 import com.simibubi.create.foundation.utility.Lang;
 
 import net.minecraft.core.BlockPos;
@@ -48,7 +49,8 @@ public class CartAssemblerBlockItem extends BlockItem {
 		if (player == null)
 			return false;
 		if (!(block instanceof BaseRailBlock)) {
-			Lang.sendStatus(player, "block.cart_assembler.invalid");
+			Lang.translate("block.cart_assembler.invalid")
+				.sendStatus(player);
 			return false;
 		}
 
@@ -80,6 +82,8 @@ public class CartAssemblerBlockItem extends BlockItem {
 		if (!player.isCreative())
 			context.getItemInHand()
 				.shrink(1);
+
+		AdvancementBehaviour.setPlacedBy(world, pos, player);
 		return true;
 	}
 }

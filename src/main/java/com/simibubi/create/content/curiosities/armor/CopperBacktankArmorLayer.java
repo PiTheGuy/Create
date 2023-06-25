@@ -10,6 +10,7 @@ import com.simibubi.create.foundation.render.SuperByteBuffer;
 import com.simibubi.create.foundation.utility.AngleHelper;
 import com.simibubi.create.foundation.utility.AnimationTickHolder;
 import com.simibubi.create.foundation.utility.Color;
+import com.simibubi.create.foundation.utility.Components;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
@@ -25,12 +26,12 @@ import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.client.gui.ForgeIngameGui;
 import net.minecraftforge.client.gui.IIngameOverlay;
@@ -106,10 +107,14 @@ public class CopperBacktankArmorLayer<T extends LivingEntity, M extends EntityMo
 	}
 
 	public static void renderRemainingAirOverlay(ForgeIngameGui gui, PoseStack poseStack, float partialTicks, int width, int height) {
-		LocalPlayer player = Minecraft.getInstance().player;
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.options.hideGui || mc.gameMode.getPlayerMode() == GameType.SPECTATOR)
+			return;
+
+		LocalPlayer player = mc.player;
 		if (player == null)
 			return;
-		if (player.isSpectator() || player.isCreative())
+		if (player.isCreative())
 			return;
 		if (!player.getPersistentData()
 			.contains("VisualBacktankAir"))
@@ -124,7 +129,7 @@ public class CopperBacktankArmorLayer<T extends LivingEntity, M extends EntityMo
 
 		poseStack.translate(width / 2 + 90, height - 53, 0);
 
-		Component text = new TextComponent(StringUtil.formatTickDuration(timeLeft * 20));
+		Component text = Components.literal(StringUtil.formatTickDuration(timeLeft * 20));
 		GuiGameElement.of(AllItems.COPPER_BACKTANK.asStack())
 			.at(0, 0)
 			.render(poseStack);

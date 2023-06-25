@@ -39,6 +39,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
@@ -89,8 +90,10 @@ public class SchematicAndQuillHandler {
 
 		firstPos = new BlockPos(bb.minX, bb.minY, bb.minZ);
 		secondPos = new BlockPos(bb.maxX, bb.maxY, bb.maxZ);
-		Lang.sendStatus(Minecraft.getInstance().player, "schematicAndQuill.dimensions", (int) bb.getXsize() + 1,
-			(int) bb.getYsize() + 1, (int) bb.getZsize() + 1);
+		LocalPlayer player = Minecraft.getInstance().player;
+		Lang.translate("schematicAndQuill.dimensions", (int) bb.getXsize() + 1, (int) bb.getYsize() + 1,
+			(int) bb.getZsize() + 1)
+			.sendStatus(player);
 
 		return true;
 	}
@@ -114,25 +117,29 @@ public class SchematicAndQuillHandler {
 		}
 
 		if (selectedPos == null) {
-			Lang.sendStatus(player, "schematicAndQuill.noTarget");
+			Lang.translate("schematicAndQuill.noTarget")
+				.sendStatus(player);
 			return;
 		}
 
 		if (firstPos != null) {
 			secondPos = selectedPos;
-			Lang.sendStatus(player, "schematicAndQuill.secondPos");
+			Lang.translate("schematicAndQuill.secondPos")
+				.sendStatus(player);
 			return;
 		}
 
 		firstPos = selectedPos;
-		Lang.sendStatus(player, "schematicAndQuill.firstPos");
+		Lang.translate("schematicAndQuill.firstPos")
+			.sendStatus(player);
 	}
 
 	public void discard() {
 		LocalPlayer player = Minecraft.getInstance().player;
 		firstPos = null;
 		secondPos = null;
-		Lang.sendStatus(player, "schematicAndQuill.abort");
+		Lang.translate("schematicAndQuill.abort")
+			.sendStatus(player);
 	}
 
 	public void tick() {
@@ -190,8 +197,7 @@ public class SchematicAndQuillHandler {
 		if (secondPos == null) {
 			if (firstPos == null)
 				return selectedPos == null ? null : new AABB(selectedPos);
-			return selectedPos == null ? new AABB(firstPos)
-				: new AABB(firstPos, selectedPos).expandTowards(1, 1, 1);
+			return selectedPos == null ? new AABB(firstPos) : new AABB(firstPos, selectedPos).expandTowards(1, 1, 1);
 		}
 		return new AABB(firstPos, secondPos).expandTowards(1, 1, 1);
 	}
@@ -210,11 +216,12 @@ public class SchematicAndQuillHandler {
 		BoundingBox bb = BoundingBox.fromCorners(firstPos, secondPos);
 		BlockPos origin = new BlockPos(bb.minX(), bb.minY(), bb.minZ());
 		BlockPos bounds = new BlockPos(bb.getXSpan(), bb.getYSpan(), bb.getZSpan());
+		Level level = Minecraft.getInstance().level;
 
-		t.fillFromWorld(Minecraft.getInstance().level, origin, bounds, true, Blocks.AIR);
+		t.fillFromWorld(level, origin, bounds, true, Blocks.AIR);
 
 		if (string.isEmpty())
-			string = Lang.translate("schematicAndQuill.fallbackName")
+			string = Lang.translateDirect("schematicAndQuill.fallbackName")
 				.getString();
 
 		String folderPath = "schematics";
@@ -228,6 +235,7 @@ public class SchematicAndQuillHandler {
 			outputStream = Files.newOutputStream(path, StandardOpenOption.CREATE);
 			CompoundTag nbttagcompound = t.save(new CompoundTag());
 			SchematicAndQuillItem.replaceStructureVoidWithAir(nbttagcompound);
+			SchematicAndQuillItem.clampGlueBoxes(level, new AABB(origin, origin.offset(bounds)), nbttagcompound);
 			NbtIo.writeCompressed(nbttagcompound, outputStream);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -237,7 +245,9 @@ public class SchematicAndQuillHandler {
 		}
 		firstPos = null;
 		secondPos = null;
-		Lang.sendStatus(Minecraft.getInstance().player, "schematicAndQuill.saved", filepath);
+		LocalPlayer player = Minecraft.getInstance().player;
+		Lang.translate("schematicAndQuill.saved", filepath)
+			.sendStatus(player);
 
 		if (!convertImmediately)
 			return;

@@ -43,10 +43,15 @@ public class ContraptionHandler {
 		for (Iterator<WeakReference<AbstractContraptionEntity>> iterator = values.iterator(); iterator.hasNext();) {
 			WeakReference<AbstractContraptionEntity> weakReference = iterator.next();
 			AbstractContraptionEntity contraptionEntity = weakReference.get();
-			if (contraptionEntity == null || !contraptionEntity.isAlive()) {
+			if (contraptionEntity == null || !contraptionEntity.isAliveOrStale()) {
 				iterator.remove();
 				continue;
 			}
+			if (!contraptionEntity.isAlive()) {
+				contraptionEntity.staleTicks--;
+				continue;
+			}
+			
 			ContraptionCollider.collideEntities(contraptionEntity);
 		}
 	}
@@ -58,15 +63,18 @@ public class ContraptionHandler {
 	}
 
 	public static void entitiesWhoJustDismountedGetSentToTheRightLocation(LivingEntity entityLiving, Level world) {
-		if (world.isClientSide)
+		if (!world.isClientSide)
 			return;
+
 		CompoundTag data = entityLiving.getPersistentData();
 		if (!data.contains("ContraptionDismountLocation"))
 			return;
+
 		Vec3 position = VecHelper.readNBT(data.getList("ContraptionDismountLocation", Tag.TAG_DOUBLE));
 		if (entityLiving.getVehicle() == null)
-			entityLiving.teleportTo(position.x, position.y, position.z);
+			entityLiving.absMoveTo(position.x, position.y, position.z, entityLiving.getYRot(), entityLiving.getXRot());
 		data.remove("ContraptionDismountLocation");
+		entityLiving.setOnGround(false);
 	}
 
 }

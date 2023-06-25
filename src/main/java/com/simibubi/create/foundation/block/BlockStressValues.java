@@ -5,6 +5,9 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.simibubi.create.foundation.utility.Couple;
+import com.simibubi.create.foundation.utility.RegisteredObjects;
+
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 
@@ -23,11 +26,12 @@ public class BlockStressValues {
 
 	@Nullable
 	public static IStressValueProvider getProvider(Block block) {
-		return getProvider(block.getRegistryName().getNamespace());
+		return getProvider(RegisteredObjects.getKeyOrThrow(block)
+			.getNamespace());
 	}
 
 	public static double getImpact(Block block) {
-		ResourceLocation blockId = block.getRegistryName();
+		ResourceLocation blockId = RegisteredObjects.getKeyOrThrow(block);
 		IStressValueProvider provider = getProvider(blockId.getNamespace());
 		if (provider != null) {
 			return provider.getImpact(block);
@@ -40,7 +44,7 @@ public class BlockStressValues {
 	}
 
 	public static double getCapacity(Block block) {
-		ResourceLocation blockId = block.getRegistryName();
+		ResourceLocation blockId = RegisteredObjects.getKeyOrThrow(block);
 		IStressValueProvider provider = getProvider(blockId.getNamespace());
 		if (provider != null) {
 			return provider.getCapacity(block);
@@ -53,7 +57,7 @@ public class BlockStressValues {
 	}
 
 	public static boolean hasImpact(Block block) {
-		ResourceLocation blockId = block.getRegistryName();
+		ResourceLocation blockId = RegisteredObjects.getKeyOrThrow(block);
 		IStressValueProvider provider = getProvider(blockId.getNamespace());
 		if (provider != null) {
 			return provider.hasImpact(block);
@@ -62,7 +66,7 @@ public class BlockStressValues {
 	}
 
 	public static boolean hasCapacity(Block block) {
-		ResourceLocation blockId = block.getRegistryName();
+		ResourceLocation blockId = RegisteredObjects.getKeyOrThrow(block);
 		IStressValueProvider provider = getProvider(blockId.getNamespace());
 		if (provider != null) {
 			return provider.hasCapacity(block);
@@ -90,6 +94,14 @@ public class BlockStressValues {
 		boolean hasImpact(Block block);
 
 		boolean hasCapacity(Block block);
+
+		/**
+		 * 
+		 * @param block
+		 * @return min, max generated RPM; null if block does not have a stress capacity
+		 */
+		@Nullable
+		Couple<Integer> getGeneratedRPM(Block block);
 	}
 
 }

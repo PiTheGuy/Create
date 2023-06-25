@@ -8,7 +8,9 @@ import com.simibubi.create.foundation.gui.ScreenOpener;
 import com.simibubi.create.foundation.ponder.ui.NavigatableSimiScreen;
 import com.simibubi.create.foundation.ponder.ui.PonderUI;
 import com.simibubi.create.foundation.utility.Color;
+import com.simibubi.create.foundation.utility.Components;
 import com.simibubi.create.foundation.utility.Lang;
+import com.simibubi.create.foundation.utility.RegisteredObjects;
 import com.simibubi.create.foundation.utility.animation.LerpedFloat;
 
 import net.minecraft.ChatFormatting;
@@ -18,14 +20,13 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.event.RenderTooltipEvent;
 
 public class PonderTooltipHandler {
 
 	public static boolean enable = true;
-	
+
 	static LerpedFloat holdWProgress = LerpedFloat.linear()
 		.startWithValue(0);
 	static ItemStack hoveredStack = ItemStack.EMPTY;
@@ -44,7 +45,7 @@ public class PonderTooltipHandler {
 		deferTick = false;
 		Minecraft instance = Minecraft.getInstance();
 		Screen currentScreen = instance.screen;
-		
+
 		if (hoveredStack.isEmpty() || trackingStack.isEmpty()) {
 			trackingStack = ItemStack.EMPTY;
 			holdWProgress.startWithValue(0);
@@ -75,7 +76,7 @@ public class PonderTooltipHandler {
 	public static void addToTooltip(List<Component> toolTip, ItemStack stack) {
 		if (!enable)
 			return;
-		
+
 		updateHovered(stack);
 
 		if (deferTick)
@@ -86,7 +87,7 @@ public class PonderTooltipHandler {
 
 		float renderPartialTicks = Minecraft.getInstance()
 			.getFrameTime();
-		Component component = subject ? Lang.createTranslationTextComponent(SUBJECT)
+		Component component = subject ? Lang.translateDirect(SUBJECT)
 			.withStyle(ChatFormatting.GREEN)
 			: makeProgressBar(Math.min(1, holdWProgress.getValue(renderPartialTicks) * 8 / 7f));
 		if (toolTip.size() < 2)
@@ -99,7 +100,7 @@ public class PonderTooltipHandler {
 		Minecraft instance = Minecraft.getInstance();
 		Screen currentScreen = instance.screen;
 		boolean inPonderUI = currentScreen instanceof PonderUI;
-		
+
 		ItemStack prevStack = trackingStack;
 		hoveredStack = ItemStack.EMPTY;
 		subject = false;
@@ -112,11 +113,10 @@ public class PonderTooltipHandler {
 
 		if (stack.isEmpty())
 			return;
-		if (!PonderRegistry.ALL.containsKey(stack.getItem()
-			.getRegistryName()))
+		if (!PonderRegistry.ALL.containsKey(RegisteredObjects.getKeyOrThrow(stack.getItem())))
 			return;
 
-		if (prevStack.isEmpty() || !prevStack.sameItem(stack)) 
+		if (prevStack.isEmpty() || !prevStack.sameItem(stack))
 			holdWProgress.startWithValue(0);
 
 		hoveredStack = stack;
@@ -149,7 +149,7 @@ public class PonderTooltipHandler {
 
 	private static Component makeProgressBar(float progress) {
 		MutableComponent holdW = Lang
-			.translate(HOLD_TO_PONDER,
+			.translateDirect(HOLD_TO_PONDER,
 				((MutableComponent) ponderKeybind().getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY))
 			.withStyle(ChatFormatting.DARK_GRAY);
 
@@ -165,7 +165,7 @@ public class PonderTooltipHandler {
 			bars += ChatFormatting.GRAY + Strings.repeat("|", current);
 			if (progress < 1)
 				bars += ChatFormatting.DARK_GRAY + Strings.repeat("|", total - current);
-			return new TextComponent(bars);
+			return Components.literal(bars);
 		}
 
 		return holdW;

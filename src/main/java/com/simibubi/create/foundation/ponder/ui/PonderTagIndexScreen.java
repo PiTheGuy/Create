@@ -17,6 +17,7 @@ import com.simibubi.create.foundation.item.TooltipHelper;
 import com.simibubi.create.foundation.ponder.PonderLocalization;
 import com.simibubi.create.foundation.ponder.PonderRegistry;
 import com.simibubi.create.foundation.ponder.PonderTag;
+import com.simibubi.create.foundation.utility.Components;
 import com.simibubi.create.foundation.utility.FontHelper;
 import com.simibubi.create.foundation.utility.Lang;
 
@@ -24,7 +25,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.util.Mth;
 
 public class PonderTagIndexScreen extends NavigatableSimiScreen {
@@ -114,7 +114,7 @@ public class PonderTagIndexScreen extends NavigatableSimiScreen {
 		int x = 31 + 20 + 8;
 		int y = 31;
 
-		String title = Lang.translate(WELCOME)
+		String title = Lang.translateDirect(WELCOME)
 			.getString();
 
 		int streakHeight = 35;
@@ -149,7 +149,7 @@ public class PonderTagIndexScreen extends NavigatableSimiScreen {
 		x = (width - w) / 2;
 		y = getItemsY() - 10 + Math.max(itemArea.getHeight(), 48);
 
-		String desc = Lang.translate(DESCRIPTION)
+		String desc = Lang.translateDirect(DESCRIPTION)
 			.getString();
 		int h = font.wordWrapHeight(desc, w);
 
@@ -173,7 +173,7 @@ public class PonderTagIndexScreen extends NavigatableSimiScreen {
 		int x = (int) (width * itemXmult);
 		int y = getItemsY();
 
-		String relatedTitle = Lang.translate(CATEGORIES)
+		String relatedTitle = Lang.translateDirect(CATEGORIES)
 			.getString();
 		int stringWidth = font.width(relatedTitle);
 
@@ -214,7 +214,7 @@ public class PonderTagIndexScreen extends NavigatableSimiScreen {
 		if (hoveredItem != null) {
 			List<Component> list = TooltipHelper.cutStringTextComponent(hoveredItem.getDescription(),
 				ChatFormatting.GRAY, ChatFormatting.GRAY);
-			list.add(0, new TextComponent(hoveredItem.getTitle()));
+			list.add(0, Components.literal(hoveredItem.getTitle()));
 			renderComponentTooltip(ms, list, mouseX, mouseY);
 		}
 
@@ -224,7 +224,7 @@ public class PonderTagIndexScreen extends NavigatableSimiScreen {
 
 	@Override
 	protected String getBreadcrumbTitle() {
-		return Lang.translate(TITLE)
+		return Lang.translateDirect(TITLE)
 			.getString();
 	}
 

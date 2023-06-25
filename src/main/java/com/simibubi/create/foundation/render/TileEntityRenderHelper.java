@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 
 import com.jozufozu.flywheel.backend.Backend;
 import com.jozufozu.flywheel.backend.instancing.InstancedRenderRegistry;
+import com.jozufozu.flywheel.config.BackendType;
 import com.jozufozu.flywheel.core.virtual.VirtualRenderWorld;
 import com.jozufozu.flywheel.util.transform.TransformStack;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -14,6 +15,7 @@ import com.mojang.math.Vector4f;
 import com.simibubi.create.Create;
 import com.simibubi.create.foundation.config.AllConfigs;
 import com.simibubi.create.foundation.utility.AnimationTickHolder;
+import com.simibubi.create.foundation.utility.RegisteredObjects;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -48,7 +50,7 @@ public class TileEntityRenderHelper {
 		Iterator<BlockEntity> iterator = customRenderTEs.iterator();
 		while (iterator.hasNext()) {
 			BlockEntity tileEntity = iterator.next();
-			if (Backend.canUseInstancing(renderWorld) && InstancedRenderRegistry.shouldSkipRender(tileEntity))
+			if (Backend.getBackendType() == BackendType.INSTANCING && Backend.isFlywheelWorld(renderWorld) && InstancedRenderRegistry.shouldSkipRender(tileEntity))
 				continue;
 
 			BlockEntityRenderer<BlockEntity> renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(tileEntity);
@@ -63,22 +65,21 @@ public class TileEntityRenderHelper {
 				.translate(pos);
 
 			try {
-				BlockPos lightPos;
-				if (lightTransform != null) {
-					Vector4f lightVec = new Vector4f(pos.getX() + .5f, pos.getY() + .5f, pos.getZ() + .5f, 1);
-					lightVec.transform(lightTransform);
-					lightPos = new BlockPos(lightVec.x(), lightVec.y(), lightVec.z());
+				int worldLight = getCombinedLight(world, getLightPos(lightTransform, pos), renderWorld, pos);
+
+				if (renderWorld != null) {
+					// Swap the real world for the render world so that the renderer gets contraption-local information
+					tileEntity.setLevel(renderWorld);
+					renderer.render(tileEntity, pt, ms, buffer, worldLight, OverlayTexture.NO_OVERLAY);
+					tileEntity.setLevel(world);
 				} else {
-					lightPos = pos;
+					renderer.render(tileEntity, pt, ms, buffer, worldLight, OverlayTexture.NO_OVERLAY);
 				}
-				int worldLight = getCombinedLight(world, lightPos, renderWorld, pos);
-				renderer.render(tileEntity, pt, ms, buffer, worldLight, OverlayTexture.NO_OVERLAY);
 
 			} catch (Exception e) {
 				iterator.remove();
 
-				String message = "BlockEntity " + tileEntity.getType()
-					.getRegistryName()
+				String message = "BlockEntity " + RegisteredObjects.getKeyOrThrow(tileEntity.getType())
 					.toString() + " could not be rendered virtually.";
 				if (AllConfigs.CLIENT.explainRenderErrors.get())
 					Create.LOGGER.error(message, e);
@@ -87,6 +88,16 @@ public class TileEntityRenderHelper {
 			}
 
 			ms.popPose();
+		}
+	}
+
+	private static BlockPos getLightPos(@Nullable Matrix4f lightTransform, BlockPos contraptionPos) {
+		if (lightTransform != null) {
+			Vector4f lightVec = new Vector4f(contraptionPos.getX() + .5f, contraptionPos.getY() + .5f, contraptionPos.getZ() + .5f, 1);
+			lightVec.transform(lightTransform);
+			return new BlockPos(lightVec.x(), lightVec.y(), lightVec.z());
+		} else {
+			return contraptionPos;
 		}
 	}
 

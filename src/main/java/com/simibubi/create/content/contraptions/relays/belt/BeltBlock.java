@@ -13,6 +13,8 @@ import com.simibubi.create.AllTileEntities;
 import com.simibubi.create.Create;
 import com.simibubi.create.content.contraptions.base.HorizontalKineticBlock;
 import com.simibubi.create.content.contraptions.base.KineticTileEntity;
+import com.simibubi.create.content.contraptions.components.structureMovement.ITransformableBlock;
+import com.simibubi.create.content.contraptions.components.structureMovement.StructureTransform;
 import com.simibubi.create.content.contraptions.processing.EmptyingByBasin;
 import com.simibubi.create.content.contraptions.relays.belt.BeltSlicer.Feedback;
 import com.simibubi.create.content.contraptions.relays.belt.BeltTileEntity.CasingType;
@@ -22,7 +24,6 @@ import com.simibubi.create.content.logistics.block.belts.tunnel.BeltTunnelBlock;
 import com.simibubi.create.content.schematics.ISpecialBlockItemRequirement;
 import com.simibubi.create.content.schematics.ItemRequirement;
 import com.simibubi.create.content.schematics.ItemRequirement.ItemUseType;
-import com.simibubi.create.foundation.advancement.AllTriggers;
 import com.simibubi.create.foundation.block.ITE;
 import com.simibubi.create.foundation.block.render.DestroyProgressRenderingHandler;
 import com.simibubi.create.foundation.block.render.ReducedDestroyEffects;
@@ -83,7 +84,7 @@ import net.minecraftforge.common.Tags;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
-public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEntity>, ISpecialBlockItemRequirement {
+public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEntity>, ISpecialBlockItemRequirement, ITransformableBlock {
 
 	public static final Property<BeltSlope> SLOPE = EnumProperty.create("slope", BeltSlope.class);
 	public static final Property<BeltPart> PART = EnumProperty.create("part", BeltPart.class);
@@ -305,7 +306,6 @@ public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEnt
 		if (AllBlocks.BRASS_CASING.isIn(heldItem)) {
 			if (world.isClientSide)
 				return InteractionResult.SUCCESS;
-			AllTriggers.triggerFor(AllTriggers.CASING_BELT, player);
 			withTileEntityDo(world, pos, te -> te.setCasingType(CasingType.BRASS));
 			return InteractionResult.SUCCESS;
 		}
@@ -313,7 +313,6 @@ public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEnt
 		if (AllBlocks.ANDESITE_CASING.isIn(heldItem)) {
 			if (world.isClientSide)
 				return InteractionResult.SUCCESS;
-			AllTriggers.triggerFor(AllTriggers.CASING_BELT, player);
 			withTileEntityDo(world, pos, te -> te.setCasingType(CasingType.ANDESITE));
 			return InteractionResult.SUCCESS;
 		}
@@ -415,7 +414,7 @@ public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEnt
 			BlockPos nextSegmentPosition = nextSegmentPosition(currentState, currentPos, false);
 			if (nextSegmentPosition == null)
 				break;
-			if (!world.isAreaLoaded(nextSegmentPosition, 0))
+			if (!world.isLoaded(nextSegmentPosition))
 				return;
 			currentPos = nextSegmentPosition;
 		}
@@ -489,10 +488,10 @@ public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEnt
 					belt.getInventory()
 						.ejectAll();
 
-				belt.setRemoved();
 				hasPulley = belt.hasPulley();
 			}
 
+			world.removeBlockEntity(currentPos);
 			BlockState shaftState = AllBlocks.SHAFT.getDefaultState()
 				.setValue(BlockStateProperties.AXIS, getRotationAxis(currentState));
 			world.setBlock(currentPos, hasPulley ? shaftState : Blocks.AIR.defaultBlockState(), 3);
@@ -595,6 +594,100 @@ public class BeltBlock extends HorizontalKineticBlock implements ITE<BeltTileEnt
 		}
 
 		return rotate;
+	}
+
+	public BlockState transform(BlockState state, StructureTransform transform) {
+		if (transform.mirror != null) {
+			state = mirror(state, transform.mirror);
+		}
+
+		if (transform.rotationAxis == Direction.Axis.Y) {
+			return rotate(state, transform.rotation);
+		}
+		return transformInner(state, transform);
+	}
+
+	protected BlockState transformInner(BlockState state, StructureTransform transform) {
+		boolean halfTurn = transform.rotation == Rotation.CLOCKWISE_180;
+
+		Direction initialDirection = state.getValue(HORIZONTAL_FACING);
+		boolean diagonal =
+			state.getValue(SLOPE) == BeltSlope.DOWNWARD || state.getValue(SLOPE) == BeltSlope.UPWARD;
+
+		if (!diagonal) {
+			for (int i = 0; i < transform.rotation.ordinal(); i++) {
+				Direction direction = state.getValue(HORIZONTAL_FACING);
+				BeltSlope slope = state.getValue(SLOPE);
+				boolean vertical = slope == BeltSlope.VERTICAL;
+				boolean horizontal = slope == BeltSlope.HORIZONTAL;
+				boolean sideways = slope == BeltSlope.SIDEWAYS;
+
+				Direction newDirection = direction.getOpposite();
+				BeltSlope newSlope = BeltSlope.VERTICAL;
+
+				if (vertical) {
+					if (direction.getAxis() == transform.rotationAxis) {
+						newDirection = direction.getCounterClockWise();
+						newSlope = BeltSlope.SIDEWAYS;
+					} else {
+						newSlope = BeltSlope.HORIZONTAL;
+						newDirection = direction;
+						if (direction.getAxis() == Axis.Z)
+							newDirection = direction.getOpposite();
+					}
+				}
+
+				if (sideways) {
+					newDirection = direction;
+					if (direction.getAxis() == transform.rotationAxis)
+						newSlope = BeltSlope.HORIZONTAL;
+					else
+						newDirection = direction.getCounterClockWise();
+				}
+
+				if (horizontal) {
+					newDirection = direction;
+					if (direction.getAxis() == transform.rotationAxis)
+						newSlope = BeltSlope.SIDEWAYS;
+					else if (direction.getAxis() != Axis.Z)
+						newDirection = direction.getOpposite();
+				}
+
+				state = state.setValue(HORIZONTAL_FACING, newDirection);
+				state = state.setValue(SLOPE, newSlope);
+			}
+
+		} else if (initialDirection.getAxis() != transform.rotationAxis) {
+			for (int i = 0; i < transform.rotation.ordinal(); i++) {
+				Direction direction = state.getValue(HORIZONTAL_FACING);
+				Direction newDirection = direction.getOpposite();
+				BeltSlope slope = state.getValue(SLOPE);
+				boolean upward = slope == BeltSlope.UPWARD;
+				boolean downward = slope == BeltSlope.DOWNWARD;
+
+				// Rotate diagonal
+				if (direction.getAxisDirection() == AxisDirection.POSITIVE ^ downward ^ direction.getAxis() == Axis.Z) {
+					state = state.setValue(SLOPE, upward ? BeltSlope.DOWNWARD : BeltSlope.UPWARD);
+				} else {
+					state = state.setValue(HORIZONTAL_FACING, newDirection);
+				}
+			}
+
+		} else if (halfTurn) {
+			Direction direction = state.getValue(HORIZONTAL_FACING);
+			Direction newDirection = direction.getOpposite();
+			BeltSlope slope = state.getValue(SLOPE);
+			boolean vertical = slope == BeltSlope.VERTICAL;
+
+			if (diagonal) {
+				state = state.setValue(SLOPE, slope == BeltSlope.UPWARD ? BeltSlope.DOWNWARD
+					: slope == BeltSlope.DOWNWARD ? BeltSlope.UPWARD : slope);
+			} else if (vertical) {
+				state = state.setValue(HORIZONTAL_FACING, newDirection);
+			}
+		}
+
+		return state;
 	}
 
 	@Override

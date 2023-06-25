@@ -1,12 +1,12 @@
 package com.simibubi.create.content.contraptions.processing;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.simibubi.create.content.contraptions.base.KineticTileEntity;
-import com.simibubi.create.foundation.advancement.AllTriggers;
-import com.simibubi.create.foundation.advancement.ITriggerable;
+import com.simibubi.create.foundation.advancement.CreateAdvancement;
 import com.simibubi.create.foundation.tileEntity.TileEntityBehaviour;
 import com.simibubi.create.foundation.tileEntity.behaviour.simple.DeferralBehaviour;
 import com.simibubi.create.foundation.utility.recipe.RecipeFinder;
@@ -65,7 +65,8 @@ public abstract class BasinOperatingTileEntity extends KineticTileEntity {
 			return true;
 		if (level == null || level.isClientSide)
 			return true;
-		if (!getBasin().filter(BasinTileEntity::canContinueProcessing)
+		Optional<BasinTileEntity> basin = getBasin();
+		if (!basin.filter(BasinTileEntity::canContinueProcessing)
 			.isPresent())
 			return true;
 
@@ -106,9 +107,7 @@ public abstract class BasinOperatingTileEntity extends KineticTileEntity {
 		boolean wasEmpty = basin.canContinueProcessing();
 		if (!BasinRecipe.apply(basin, currentRecipe))
 			return;
-		Optional<ITriggerable> processedRecipeTrigger = getProcessedRecipeTrigger();
-		if (level != null && !level.isClientSide && processedRecipeTrigger.isPresent())
-			AllTriggers.triggerForNearbyPlayers(processedRecipeTrigger.get(), level, worldPosition, 4);
+		getProcessedRecipeTrigger().ifPresent(this::award);
 		basin.inputTank.sendDataImmediately();
 
 		// Continue mixing
@@ -121,6 +120,10 @@ public abstract class BasinOperatingTileEntity extends KineticTileEntity {
 	}
 
 	protected List<Recipe<?>> getMatchingRecipes() {
+		if (getBasin().map(BasinTileEntity::isEmpty)
+			.orElse(true))
+			return new ArrayList<>();
+		
 		List<Recipe<?>> list = RecipeFinder.get(getRecipeCacheKey(), level, this::matchStaticFilters);
 		return list.stream()
 			.filter(this::matchBasinRecipe)
@@ -142,7 +145,7 @@ public abstract class BasinOperatingTileEntity extends KineticTileEntity {
 		return Optional.of((BasinTileEntity) basinTE);
 	}
 
-	protected Optional<ITriggerable> getProcessedRecipeTrigger() {
+	protected Optional<CreateAdvancement> getProcessedRecipeTrigger() {
 		return Optional.empty();
 	}
 

@@ -6,7 +6,7 @@ import javax.annotation.Nullable;
 
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.contraptions.base.KineticTileEntity;
-import com.simibubi.create.content.contraptions.components.actors.SeatBlock;
+import com.simibubi.create.foundation.tileEntity.IMergeableTE;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,6 +24,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
@@ -31,6 +33,7 @@ import net.minecraft.world.level.block.BaseRailBlock;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.IceBlock;
 import net.minecraft.world.level.block.SlimeBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -40,6 +43,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Material;
 import net.minecraftforge.common.IPlantable;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.BlockEvent;
@@ -68,8 +72,7 @@ public class BlockHelper {
 		if (blockState.hasProperty(BlockStateProperties.STAGE))
 			return blockState.setValue(BlockStateProperties.STAGE, 0);
 		if (blockState.is(BlockTags.CAULDRONS))
-			return Blocks.CAULDRON.delegate.get()
-				.defaultBlockState();
+			return Blocks.CAULDRON.defaultBlockState();
 		if (blockState.hasProperty(BlockStateProperties.LEVEL_COMPOSTER))
 			return blockState.setValue(BlockStateProperties.LEVEL_COMPOSTER, 0);
 		if (blockState.hasProperty(BlockStateProperties.EXTENDED))
@@ -156,9 +159,11 @@ public class BlockHelper {
 		float effectChance, Consumer<ItemStack> droppedItemCallback) {
 		FluidState fluidState = world.getFluidState(pos);
 		BlockState state = world.getBlockState(pos);
+		
 		if (world.random.nextFloat() < effectChance)
 			world.levelEvent(2001, pos, Block.getId(state));
 		BlockEntity tileentity = state.hasBlockEntity() ? world.getBlockEntity(pos) : null;
+		
 		if (player != null) {
 			BlockEvent.BreakEvent event = new BlockEvent.BreakEvent(world, pos, state, player);
 			MinecraftForge.EVENT_BUS.post(event);
@@ -178,9 +183,25 @@ public class BlockHelper {
 			&& (player == null || !player.isCreative())) {
 			for (ItemStack itemStack : Block.getDrops(state, (ServerLevel) world, pos, tileentity, player, usedTool))
 				droppedItemCallback.accept(itemStack);
+
+			// Simulating IceBlock#playerDestroy. Not calling method directly as it would drop item
+			// entities as a side-effect
+			if (state.getBlock() instanceof IceBlock
+				&& EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SILK_TOUCH, usedTool) == 0) {
+				if (world.dimensionType()
+					.ultraWarm())
+					return;
+
+				Material material = world.getBlockState(pos.below())
+					.getMaterial();
+				if (material.blocksMotion() || material.isLiquid())
+					world.setBlockAndUpdate(pos, Blocks.WATER.defaultBlockState());
+				return;
+			}
+
 			state.spawnAfterBreak((ServerLevel) world, pos, ItemStack.EMPTY);
 		}
-
+		
 		world.setBlockAndUpdate(pos, fluidState.createLegacyBlock());
 	}
 
@@ -200,15 +221,12 @@ public class BlockHelper {
 		int idx = chunk.getSectionIndex(target.getY());
 		LevelChunkSection chunksection = chunk.getSection(idx);
 		if (chunksection == null) {
-			chunksection = new LevelChunkSection(chunk.getSectionYFromSectionIndex(idx),
-					world.registryAccess().registryOrThrow(Registry.BIOME_REGISTRY));
+			chunksection = new LevelChunkSection(chunk.getSectionYFromSectionIndex(idx), world.registryAccess()
+				.registryOrThrow(Registry.BIOME_REGISTRY));
 			chunk.getSections()[idx] = chunksection;
 		}
-		BlockState old = chunksection.setBlockState(
-				SectionPos.sectionRelative(target.getX()),
-				SectionPos.sectionRelative(target.getY()),
-				SectionPos.sectionRelative(target.getZ()),
-				state);
+		BlockState old = chunksection.setBlockState(SectionPos.sectionRelative(target.getX()),
+			SectionPos.sectionRelative(target.getY()), SectionPos.sectionRelative(target.getZ()), state);
 		chunk.setUnsaved(true);
 		world.markAndNotifyBlock(target, chunk, old, state, 82, 512);
 
@@ -219,6 +237,8 @@ public class BlockHelper {
 
 	public static void placeSchematicBlock(Level world, BlockState state, BlockPos target, ItemStack stack,
 		@Nullable CompoundTag data) {
+		BlockEntity existingTile = world.getBlockEntity(target);
+
 		// Piston
 		if (state.hasProperty(BlockStateProperties.EXTENDED))
 			state = state.setValue(BlockStateProperties.EXTENDED, Boolean.FALSE);
@@ -232,12 +252,11 @@ public class BlockHelper {
 			state = Blocks.COMPOSTER.defaultBlockState();
 		else if (state.getBlock() != Blocks.SEA_PICKLE && state.getBlock() instanceof IPlantable)
 			state = ((IPlantable) state.getBlock()).getPlant(world, target);
+		else if (state.is(BlockTags.CAULDRONS))
+			state = Blocks.CAULDRON.defaultBlockState();
 
 		if (world.dimensionType()
-			.ultraWarm()
-			&& state.getFluidState()
-				.getType()
-				.is(FluidTags.WATER)) {
+			.ultraWarm() && state.getFluidState().is(FluidTags.WATER)) {
 			int i = target.getX();
 			int j = target.getY();
 			int k = target.getZ();
@@ -259,6 +278,14 @@ public class BlockHelper {
 		}
 
 		if (data != null) {
+			if (existingTile instanceof IMergeableTE mergeable) {
+				BlockEntity loaded = BlockEntity.loadStatic(target, state, data);
+				if (existingTile.getType()
+					.equals(loaded.getType())) {
+					mergeable.accept(loaded);
+					return;
+				}
+			}
 			BlockEntity tile = world.getBlockEntity(target);
 			if (tile != null) {
 				data.putInt("x", target.getX());
@@ -280,7 +307,7 @@ public class BlockHelper {
 	public static double getBounceMultiplier(Block block) {
 		if (block instanceof SlimeBlock)
 			return 0.8D;
-		if (block instanceof BedBlock || block instanceof SeatBlock)
+		if (block instanceof BedBlock)
 			return 0.66 * 0.8D;
 		return 0;
 	}

@@ -8,25 +8,30 @@ import javax.annotation.Nonnull;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.simibubi.create.foundation.gui.TickableGuiEventListener;
+import com.simibubi.create.foundation.utility.Components;
 
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 
 public abstract class AbstractSimiWidget extends AbstractWidget implements TickableGuiEventListener {
 
+	public static final int HEADER_RGB = 0x5391E1;
+	
 	protected float z;
 	protected boolean wasHovered = false;
 	protected List<Component> toolTip = new LinkedList<>();
 	protected BiConsumer<Integer, Integer> onClick = (_$, _$$) -> {};
+	
+	public int lockedTooltipX = -1;
+	public int lockedTooltipY = -1;
 
 	protected AbstractSimiWidget(int x, int y) {
 		this(x, y, 16, 16);
 	}
 
 	protected AbstractSimiWidget(int x, int y, int width, int height) {
-		this(x, y, width, height, TextComponent.EMPTY);
+		this(x, y, width, height, Components.immutableEmpty());
 	}
 
 	protected AbstractSimiWidget(int x, int y, int width, int height, Component message) {

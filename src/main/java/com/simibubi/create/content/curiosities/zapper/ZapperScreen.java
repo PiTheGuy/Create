@@ -10,13 +10,13 @@ import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.element.GuiGameElement;
 import com.simibubi.create.foundation.gui.widget.IconButton;
 import com.simibubi.create.foundation.networking.AllPackets;
+import com.simibubi.create.foundation.utility.Components;
 import com.simibubi.create.foundation.utility.Lang;
 import com.simibubi.create.foundation.utility.NBTHelper;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 public abstract class ZapperScreen extends AbstractSimiScreen {
 
-	protected final Component patternSection = Lang.translate("gui.terrainzapper.patternSection");
+	protected final Component patternSection = Lang.translateDirect("gui.terrainzapper.patternSection");
 
 	protected AllGuiTextures background;
 	protected ItemStack zapper;
@@ -44,7 +44,7 @@ public abstract class ZapperScreen extends AbstractSimiScreen {
 		this.background = background;
 		this.zapper = zapper;
 		this.hand = hand;
-		title = TextComponent.EMPTY;
+		title = Components.immutableEmpty();
 		brightColor = 0xFEFEFE;
 		fontColor = AllGuiTextures.FONT_COLOR;
 
@@ -81,7 +81,7 @@ public abstract class ZapperScreen extends AbstractSimiScreen {
 					patternButton.active = false;
 					currentPattern = pattern;
 				});
-				patternButton.setToolTip(Lang.translate("gui.terrainzapper.pattern." + pattern.translationKey));
+				patternButton.setToolTip(Lang.translateDirect("gui.terrainzapper.pattern." + pattern.translationKey));
 				patternButtons.add(patternButton);
 			}
 		}

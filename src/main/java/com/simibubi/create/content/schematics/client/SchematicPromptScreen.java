@@ -10,19 +10,19 @@ import com.simibubi.create.foundation.gui.AllGuiTextures;
 import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.element.GuiGameElement;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import com.simibubi.create.foundation.utility.Components;
 import com.simibubi.create.foundation.utility.Lang;
 
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
 
 public class SchematicPromptScreen extends AbstractSimiScreen {
 
 	private AllGuiTextures background;
 
-	private final Component convertLabel = Lang.translate("schematicAndQuill.convert");
-	private final Component abortLabel = Lang.translate("action.discard");
-	private final Component confirmLabel = Lang.translate("action.saveToFile");
+	private final Component convertLabel = Lang.translateDirect("schematicAndQuill.convert");
+	private final Component abortLabel = Lang.translateDirect("action.discard");
+	private final Component confirmLabel = Lang.translateDirect("action.saveToFile");
 
 	private EditBox nameField;
 	private IconButton confirm;
@@ -30,7 +30,7 @@ public class SchematicPromptScreen extends AbstractSimiScreen {
 	private IconButton convert;
 
 	public SchematicPromptScreen() {
-		super(Lang.translate("schematicAndQuill.title"));
+		super(Lang.translateDirect("schematicAndQuill.title"));
 		background = AllGuiTextures.SCHEMATIC_PROMPT;
 	}
 
@@ -42,7 +42,7 @@ public class SchematicPromptScreen extends AbstractSimiScreen {
 		int x = guiLeft;
 		int y = guiTop;
 
-		nameField = new EditBox(font, x + 49, y + 26, 131, 10, TextComponent.EMPTY);
+		nameField = new EditBox(font, x + 49, y + 26, 131, 10, Components.immutableEmpty());
 		nameField.setTextColor(-1);
 		nameField.setTextColorUneditable(-1);
 		nameField.setBordered(false);

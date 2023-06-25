@@ -22,29 +22,27 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.simibubi.create.content.contraptions.base.IRotate;
-import com.simibubi.create.content.contraptions.base.IRotate.SpeedLevel;
 import com.simibubi.create.content.contraptions.base.IRotate.StressImpact;
-import com.simibubi.create.content.contraptions.components.fan.EncasedFanBlock;
-import com.simibubi.create.content.contraptions.components.flywheel.engine.FurnaceEngineBlock;
-import com.simibubi.create.content.contraptions.components.waterwheel.WaterWheelBlock;
 import com.simibubi.create.content.contraptions.goggles.GogglesItem;
 import com.simibubi.create.foundation.block.BlockStressValues;
 import com.simibubi.create.foundation.config.AllConfigs;
 import com.simibubi.create.foundation.config.CKinetics;
+import com.simibubi.create.foundation.utility.Components;
+import com.simibubi.create.foundation.utility.Couple;
 import com.simibubi.create.foundation.utility.Lang;
+import com.simibubi.create.foundation.utility.LangBuilder;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.level.block.Block;
 
 public class ItemDescription {
 
 	public static final ItemDescription MISSING = new ItemDescription(null);
-	public static Component trim = new TextComponent("                          ").withStyle(WHITE, STRIKETHROUGH);
+	public static Component trim = Components.literal("                          ").withStyle(WHITE, STRIKETHROUGH);
 
 	public enum Palette {
 
@@ -87,90 +85,82 @@ public class ItemDescription {
 		List<Component> list = new ArrayList<>();
 
 		CKinetics config = AllConfigs.SERVER.kinetics;
-		Component rpmUnit = Lang.translate("generic.unit.rpm");
+		LangBuilder rpmUnit = Lang.translate("generic.unit.rpm");
+		LangBuilder suUnit = Lang.translate("generic.unit.stress");
 
 		boolean hasGoggles = GogglesItem.isWearingGoggles(Minecraft.getInstance().player);
 
-		SpeedLevel minimumRequiredSpeedLevel;
 		boolean showStressImpact;
 		if (!(block instanceof IRotate)) {
-			minimumRequiredSpeedLevel = SpeedLevel.NONE;
 			showStressImpact = true;
 		} else {
-			minimumRequiredSpeedLevel = ((IRotate) block).getMinimumRequiredSpeedLevel();
 			showStressImpact = !((IRotate) block).hideStressImpact();
 		}
 
-		boolean hasSpeedRequirement = minimumRequiredSpeedLevel != SpeedLevel.NONE && minimumRequiredSpeedLevel != SpeedLevel.SLOW;
 		boolean hasStressImpact =
 			StressImpact.isEnabled() && showStressImpact && BlockStressValues.getImpact(block) > 0;
 		boolean hasStressCapacity = StressImpact.isEnabled() && BlockStressValues.hasCapacity(block);
 
-		if (hasSpeedRequirement) {
-			MutableComponent level =
-				new TextComponent(makeProgressBar(3, minimumRequiredSpeedLevel.ordinal())).withStyle(minimumRequiredSpeedLevel.getTextColor());
-
-			if (hasGoggles)
-				level.append(String.valueOf(minimumRequiredSpeedLevel.getSpeedValue()))
-					.append(rpmUnit)
-					.append("+");
-			else
-				level.append(Lang.translate("tooltip.speedRequirement." + Lang.asId(minimumRequiredSpeedLevel.name())));
-
-			list.add(Lang.translate("tooltip.speedRequirement")
-				.withStyle(GRAY));
-			list.add(level);
-		}
-
 		if (hasStressImpact) {
+			Lang.translate("tooltip.stressImpact")
+				.style(GRAY)
+				.addTo(list);
+
 			double impact = BlockStressValues.getImpact(block);
 			StressImpact impactId = impact >= config.highStressImpact.get() ? StressImpact.HIGH
 				: (impact >= config.mediumStressImpact.get() ? StressImpact.MEDIUM : StressImpact.LOW);
-			MutableComponent level =
-				new TextComponent(makeProgressBar(3, impactId.ordinal() + 1)).withStyle(impactId.getAbsoluteColor());
+			LangBuilder builder = Lang.builder()
+				.add(Lang.text(makeProgressBar(3, impactId.ordinal() + 1))
+					.style(impactId.getAbsoluteColor()));
 
-			if (hasGoggles)
-				level.append(impact + "x ")
-					.append(rpmUnit);
-			else
-				level.append(Lang.translate("tooltip.stressImpact." + Lang.asId(impactId.name())));
-
-			list.add(Lang.translate("tooltip.stressImpact")
-				.withStyle(GRAY));
-			list.add(level);
+			if (hasGoggles) {
+				builder.add(Lang.number(impact))
+					.text("x ")
+					.add(rpmUnit)
+					.addTo(list);
+			} else
+				builder.translate("tooltip.stressImpact." + Lang.asId(impactId.name()))
+					.addTo(list);
 		}
 
 		if (hasStressCapacity) {
+			Lang.translate("tooltip.capacityProvided")
+				.style(GRAY)
+				.addTo(list);
+
 			double capacity = BlockStressValues.getCapacity(block);
+			BlockStressValues.IStressValueProvider stressProvider = BlockStressValues.getProvider(block);
+			Couple<Integer> generatedRPM = stressProvider != null ?
+				stressProvider.getGeneratedRPM(block)
+                : null;
+
 			StressImpact impactId = capacity >= config.highCapacity.get() ? StressImpact.HIGH
 				: (capacity >= config.mediumCapacity.get() ? StressImpact.MEDIUM : StressImpact.LOW);
 			StressImpact opposite = StressImpact.values()[StressImpact.values().length - 2 - impactId.ordinal()];
-			MutableComponent level =
-				new TextComponent(makeProgressBar(3, impactId.ordinal() + 1)).withStyle(opposite.getAbsoluteColor());
+			LangBuilder builder = Lang.builder()
+				.add(Lang.text(makeProgressBar(3, impactId.ordinal() + 1))
+					.style(opposite.getAbsoluteColor()));
 
-			if (hasGoggles)
-				level.append(capacity + "x ")
-					.append(rpmUnit);
-			else
-				level.append(Lang.translate("tooltip.capacityProvided." + Lang.asId(opposite.name())));
+			if (hasGoggles) {
+				builder.add(Lang.number(capacity))
+					.text("x ")
+					.add(rpmUnit)
+					.addTo(list);
 
-//			if (!isEngine && ((IRotate) block).showCapacityWithAnnotation())
-//				level +=
-//					" " + DARK_GRAY + TextFormatting.ITALIC + Lang.translate("tooltip.capacityProvided.asGenerator");
-
-			list.add(Lang.translate("tooltip.capacityProvided")
-				.withStyle(GRAY));
-			list.add(level);
-
-			MutableComponent genSpeed = generatorSpeed(block, rpmUnit);
-			if (!genSpeed.getString()
-				.isEmpty())
-				list.add(new TextComponent(" ").append(genSpeed)
-					.withStyle(DARK_GRAY));
+				if (generatedRPM != null) {
+					LangBuilder amount = Lang.number(capacity * generatedRPM.getSecond())
+						.add(suUnit);
+					Lang.text(" -> ")
+						.add(!generatedRPM.getFirst()
+							.equals(generatedRPM.getSecond()) ? Lang.translate("tooltip.up_to", amount) : amount)
+						.style(DARK_GRAY)
+						.addTo(list);
+				}
+			} else
+				builder.translate("tooltip.capacityProvided." + Lang.asId(impactId.name()))
+					.addTo(list);
 		}
 
-		// if (hasSpeedRequirement || hasStressImpact || hasStressCapacity)
-		// add(linesOnShift, "");
 		return list;
 	}
 
@@ -185,13 +175,13 @@ public class ItemDescription {
 	}
 
 	public ItemDescription withBehaviour(String condition, String behaviour) {
-		add(linesOnShift, new TextComponent(condition).withStyle(GRAY));
+		add(linesOnShift, Components.literal(condition).withStyle(GRAY));
 		addStrings(linesOnShift, cutStringTextComponent(behaviour, palette.color, palette.hColor, 1));
 		return this;
 	}
 
 	public ItemDescription withControl(String condition, String action) {
-		add(linesOnCtrl, new TextComponent(condition).withStyle(GRAY));
+		add(linesOnCtrl, Components.literal(condition).withStyle(GRAY));
 		addStrings(linesOnCtrl, cutStringTextComponent(action, palette.color, palette.hColor, 1));
 		return this;
 	}
@@ -201,43 +191,43 @@ public class ItemDescription {
 		boolean hasControls = !linesOnCtrl.isEmpty();
 
 		if (hasDescription || hasControls) {
-			String[] holdDesc = Lang.translate("tooltip.holdForDescription", "$")
+			String[] holdDesc = Lang.translateDirect("tooltip.holdForDescription", "$")
 				.getString()
 				.split("\\$");
-			String[] holdCtrl = Lang.translate("tooltip.holdForControls", "$")
+			String[] holdCtrl = Lang.translateDirect("tooltip.holdForControls", "$")
 				.getString()
 				.split("\\$");
-			MutableComponent keyShift = Lang.translate("tooltip.keyShift");
-			MutableComponent keyCtrl = Lang.translate("tooltip.keyCtrl");
+			MutableComponent keyShift = Lang.translateDirect("tooltip.keyShift");
+			MutableComponent keyCtrl = Lang.translateDirect("tooltip.keyCtrl");
 			for (List<Component> list : Arrays.asList(lines, linesOnShift, linesOnCtrl)) {
 				boolean shift = list == linesOnShift;
 				boolean ctrl = list == linesOnCtrl;
 
 				if (holdDesc.length != 2 || holdCtrl.length != 2) {
-					list.add(0, new TextComponent("Invalid lang formatting!"));
+					list.add(0, Components.literal("Invalid lang formatting!"));
 					continue;
 				}
 
 				if (hasControls) {
-					MutableComponent tabBuilder = new TextComponent("");
-					tabBuilder.append(new TextComponent(holdCtrl[0]).withStyle(DARK_GRAY));
+					MutableComponent tabBuilder = Components.empty();
+					tabBuilder.append(Components.literal(holdCtrl[0]).withStyle(DARK_GRAY));
 					tabBuilder.append(keyCtrl.plainCopy()
 						.withStyle(ctrl ? WHITE : GRAY));
-					tabBuilder.append(new TextComponent(holdCtrl[1]).withStyle(DARK_GRAY));
+					tabBuilder.append(Components.literal(holdCtrl[1]).withStyle(DARK_GRAY));
 					list.add(0, tabBuilder);
 				}
 
 				if (hasDescription) {
-					MutableComponent tabBuilder = new TextComponent("");
-					tabBuilder.append(new TextComponent(holdDesc[0]).withStyle(DARK_GRAY));
+					MutableComponent tabBuilder = Components.empty();
+					tabBuilder.append(Components.literal(holdDesc[0]).withStyle(DARK_GRAY));
 					tabBuilder.append(keyShift.plainCopy()
 						.withStyle(shift ? WHITE : GRAY));
-					tabBuilder.append(new TextComponent(holdDesc[1]).withStyle(DARK_GRAY));
+					tabBuilder.append(Components.literal(holdDesc[1]).withStyle(DARK_GRAY));
 					list.add(0, tabBuilder);
 				}
 
 				if (shift || ctrl)
-					list.add(hasDescription && hasControls ? 2 : 1, new TextComponent(""));
+					list.add(hasDescription && hasControls ? 2 : 1, Components.immutableEmpty());
 			}
 		}
 
@@ -294,28 +284,6 @@ public class ItemDescription {
 
 	public List<Component> getLinesOnShift() {
 		return linesOnShift;
-	}
-
-	private static MutableComponent generatorSpeed(Block block, Component unitRPM) {
-		String value = "";
-
-		if (block instanceof WaterWheelBlock) {
-			int baseSpeed = AllConfigs.SERVER.kinetics.waterWheelBaseSpeed.get();
-			int speedmod = AllConfigs.SERVER.kinetics.waterWheelFlowSpeed.get();
-			value = (speedmod + baseSpeed) + "-" + (baseSpeed + (speedmod * 3));
-		}
-
-		else if (block instanceof EncasedFanBlock)
-			value = AllConfigs.SERVER.kinetics.generatingFanSpeed.get()
-				.toString();
-
-		else if (block instanceof FurnaceEngineBlock) {
-			int baseSpeed = AllConfigs.SERVER.kinetics.furnaceEngineSpeed.get();
-			value = baseSpeed + "-" + (baseSpeed * 2);
-		}
-
-		return !value.equals("") ? Lang.translate("tooltip.generationSpeed", value, unitRPM)
-			: TextComponent.EMPTY.plainCopy();
 	}
 
 }

@@ -6,14 +6,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
-import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.simibubi.create.foundation.utility.Couple;
-import com.simibubi.create.foundation.utility.Pair;
 
 import net.minecraft.core.Vec3i;
 import net.minecraft.data.DataGenerator;
@@ -28,12 +26,15 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.IForgeRegistry;
+import net.minecraftforge.registries.RegistryObject;
 
 //@EventBusSubscriber(bus = Bus.FORGE)
 public class AllSoundEvents {
 
-	public static final Map<ResourceLocation, SoundEntry> entries = new HashMap<>();
+	public static final Map<ResourceLocation, SoundEntry> ALL = new HashMap<>();
+
 	public static final SoundEntry
 
 	SCHEMATICANNON_LAUNCH_BLOCK = create("schematicannon_launch_block").subtitle("Schematicannon fires")
@@ -223,6 +224,73 @@ public class AllSoundEvents {
 			.category(SoundSource.BLOCKS)
 			.build(),
 
+		WHISTLE_HIGH = create("whistle_high").subtitle("High whistling")
+			.category(SoundSource.RECORDS)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_MEDIUM = create("whistle").subtitle("Whistling")
+			.category(SoundSource.RECORDS)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_LOW = create("whistle_low").subtitle("Low whistling")
+			.category(SoundSource.RECORDS)
+			.attenuationDistance(64)
+			.build(),
+
+		STEAM = create("steam").subtitle("Steam noises")
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(32)
+			.build(),
+
+		TRAIN = create("train").subtitle("Bogey wheels rumble")
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(128)
+			.build(),
+
+		TRAIN2 = create("train2").noSubtitle()
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(128)
+			.build(),
+
+		TRAIN3 = create("train3").subtitle("Bogey wheels rumble muffled")
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(16)
+			.build(),
+
+		WHISTLE_TRAIN = create("whistle_train").subtitle("Whistling")
+			.category(SoundSource.RECORDS)
+			.build(),
+
+		WHISTLE_TRAIN_LOW = create("whistle_train_low").subtitle("Low whistling")
+			.category(SoundSource.RECORDS)
+			.build(),
+
+		WHISTLE_TRAIN_MANUAL = create("whistle_train_manual").subtitle("Train honks")
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_TRAIN_MANUAL_LOW = create("whistle_train_manual_low").subtitle("Train honks")
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_TRAIN_MANUAL_END = create("whistle_train_manual_end").noSubtitle()
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_TRAIN_MANUAL_LOW_END = create("whistle_train_manual_low_end").noSubtitle()
+			.category(SoundSource.NEUTRAL)
+			.attenuationDistance(64)
+			.build(),
+
+		WHISTLE_CHIFF = create("chiff").noSubtitle()
+			.category(SoundSource.RECORDS)
+			.build(),
+
 		HAUNTED_BELL_CONVERT = create("haunted_bell_convert").subtitle("Haunted Bell awakens")
 			.category(SoundSource.BLOCKS)
 			.build(),
@@ -239,20 +307,20 @@ public class AllSoundEvents {
 		return new SoundEntryBuilder(id);
 	}
 
-	public static void register(RegistryEvent.Register<SoundEvent> event) {
-		IForgeRegistry<SoundEvent> registry = event.getRegistry();
-		for (SoundEntry entry : entries.values())
-			entry.register(registry);
+	public static void prepare() {
+		for (SoundEntry entry : ALL.values())
+			entry.prepare();
 	}
 
-	public static void prepare() {
-		for (SoundEntry entry : entries.values())
-			entry.prepare();
+	public static void register(RegistryEvent.Register<SoundEvent> event) {
+		IForgeRegistry<SoundEvent> registry = event.getRegistry();
+		for (SoundEntry entry : ALL.values())
+			entry.register(registry);
 	}
 
 	public static JsonObject provideLangEntries() {
 		JsonObject object = new JsonObject();
-		for (SoundEntry entry : entries.values())
+		for (SoundEntry entry : ALL.values())
 			if (entry.hasSubtitle())
 				object.addProperty(entry.getSubtitleKey(), entry.getSubtitle());
 		return object;
@@ -260,6 +328,11 @@ public class AllSoundEvents {
 
 	public static SoundEntryProvider provider(DataGenerator generator) {
 		return new SoundEntryProvider(generator);
+	}
+
+	public static void playItemPickup(Player player) {
+		player.level.playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, .2f,
+			1f + Create.RANDOM.nextFloat());
 	}
 
 //	@SubscribeEvent
@@ -298,7 +371,7 @@ public class AllSoundEvents {
 
 			try {
 				JsonObject json = new JsonObject();
-				entries.entrySet()
+				ALL.entrySet()
 					.stream()
 					.sorted(Map.Entry.comparingByKey())
 					.forEach(entry -> {
@@ -314,13 +387,17 @@ public class AllSoundEvents {
 
 	}
 
+	public record ConfiguredSoundEvent(Supplier<SoundEvent> event, float volume, float pitch) {
+	}
+
 	public static class SoundEntryBuilder {
 
 		protected ResourceLocation id;
 		protected String subtitle = "unregistered";
 		protected SoundSource category = SoundSource.BLOCKS;
-		protected List<Pair<SoundEvent, Couple<Float>>> wrappedEvents;
+		protected List<ConfiguredSoundEvent> wrappedEvents;
 		protected List<ResourceLocation> variants;
+		protected int attenuationDistance;
 
 		public SoundEntryBuilder(ResourceLocation id) {
 			wrappedEvents = new ArrayList<>();
@@ -330,6 +407,11 @@ public class AllSoundEvents {
 
 		public SoundEntryBuilder subtitle(String subtitle) {
 			this.subtitle = subtitle;
+			return this;
+		}
+
+		public SoundEntryBuilder attenuationDistance(int distance) {
+			this.attenuationDistance = distance;
 			return this;
 		}
 
@@ -352,9 +434,13 @@ public class AllSoundEvents {
 			return this;
 		}
 
-		public SoundEntryBuilder playExisting(SoundEvent event, float volume, float pitch) {
-			wrappedEvents.add(Pair.of(event, Couple.create(volume, pitch)));
+		public SoundEntryBuilder playExisting(Supplier<SoundEvent> event, float volume, float pitch) {
+			wrappedEvents.add(new ConfiguredSoundEvent(event, volume, pitch));
 			return this;
+		}
+
+		public SoundEntryBuilder playExisting(SoundEvent event, float volume, float pitch) {
+			return playExisting(() -> event, volume, pitch);
 		}
 
 		public SoundEntryBuilder playExisting(SoundEvent event) {
@@ -362,9 +448,10 @@ public class AllSoundEvents {
 		}
 
 		public SoundEntry build() {
-			SoundEntry entry = wrappedEvents.isEmpty() ? new CustomSoundEntry(id, variants, subtitle, category)
-				: new WrappedSoundEntry(id, subtitle, wrappedEvents, category);
-			entries.put(entry.getId(), entry);
+			SoundEntry entry =
+				wrappedEvents.isEmpty() ? new CustomSoundEntry(id, variants, subtitle, category, attenuationDistance)
+					: new WrappedSoundEntry(id, subtitle, wrappedEvents, category, attenuationDistance);
+			ALL.put(entry.getId(), entry);
 			return entry;
 		}
 
@@ -375,11 +462,13 @@ public class AllSoundEvents {
 		protected ResourceLocation id;
 		protected String subtitle;
 		protected SoundSource category;
+		protected int attenuationDistance;
 
-		public SoundEntry(ResourceLocation id, String subtitle, SoundSource category) {
+		public SoundEntry(ResourceLocation id, String subtitle, SoundSource category, int attenuationDistance) {
 			this.id = id;
 			this.subtitle = subtitle;
 			this.category = category;
+			this.attenuationDistance = attenuationDistance;
 		}
 
 		public abstract void prepare();
@@ -451,103 +540,112 @@ public class AllSoundEvents {
 
 	private static class WrappedSoundEntry extends SoundEntry {
 
-		private List<Pair<SoundEvent, Couple<Float>>> wrappedEvents;
-		private List<Pair<SoundEvent, Couple<Float>>> compiledEvents;
+		private List<ConfiguredSoundEvent> wrappedEvents;
+		private List<CompiledSoundEvent> compiledEvents;
 
-		public WrappedSoundEntry(ResourceLocation id, String subtitle, List<Pair<SoundEvent, Couple<Float>>> wrappedEvents,
-			SoundSource category) {
-			super(id, subtitle, category);
+		public WrappedSoundEntry(ResourceLocation id, String subtitle,
+			List<ConfiguredSoundEvent> wrappedEvents, SoundSource category, int attenuationDistance) {
+			super(id, subtitle, category, attenuationDistance);
 			this.wrappedEvents = wrappedEvents;
-			compiledEvents = Lists.newArrayList();
+			compiledEvents = new ArrayList<>();
 		}
 
 		@Override
 		public void prepare() {
 			for (int i = 0; i < wrappedEvents.size(); i++) {
-				ResourceLocation location = Create.asResource(getIdOf(i));
-				SoundEvent sound = new SoundEvent(location).setRegistryName(location);
-				compiledEvents.add(Pair.of(sound, wrappedEvents.get(i)
-					.getSecond()));
+				ConfiguredSoundEvent wrapped = wrappedEvents.get(i);
+				ResourceLocation location = getIdOf(i);
+				RegistryObject<SoundEvent> event = RegistryObject.create(location, ForgeRegistries.SOUND_EVENTS);
+				compiledEvents.add(new CompiledSoundEvent(event, wrapped.volume(), wrapped.pitch()));
 			}
 		}
 
 		@Override
 		public void register(IForgeRegistry<SoundEvent> registry) {
-			for (Pair<SoundEvent, Couple<Float>> pair : compiledEvents)
-				registry.register(pair.getFirst());
+			for (CompiledSoundEvent compiledEvent : compiledEvents) {
+				ResourceLocation location = compiledEvent.event().getId();
+				registry.register(new SoundEvent(location).setRegistryName(location));
+			}
 		}
 
 		@Override
 		public SoundEvent getMainEvent() {
 			return compiledEvents.get(0)
-				.getFirst();
+				.event().get();
 		}
 
-		protected String getIdOf(int i) {
-			return i == 0 ? id.getPath() : id.getPath() + "_compounded_" + i;
+		protected ResourceLocation getIdOf(int i) {
+			return new ResourceLocation(id.getNamespace(), i == 0 ? id.getPath() : id.getPath() + "_compounded_" + i);
 		}
 
 		@Override
 		public void write(JsonObject json) {
 			for (int i = 0; i < wrappedEvents.size(); i++) {
-				Pair<SoundEvent, Couple<Float>> pair = wrappedEvents.get(i);
+				ConfiguredSoundEvent event = wrappedEvents.get(i);
 				JsonObject entry = new JsonObject();
 				JsonArray list = new JsonArray();
 				JsonObject s = new JsonObject();
-				s.addProperty("name", pair.getFirst()
+				s.addProperty("name", event.event()
+					.get()
 					.getLocation()
 					.toString());
 				s.addProperty("type", "event");
+				if (attenuationDistance != 0)
+					s.addProperty("attenuation_distance", attenuationDistance);
 				list.add(s);
 				entry.add("sounds", list);
 				if (i == 0 && hasSubtitle())
 					entry.addProperty("subtitle", getSubtitleKey());
-				json.add(getIdOf(i), entry);
+				json.add(getIdOf(i).getPath(), entry);
 			}
 		}
 
 		@Override
 		public void play(Level world, Player entity, double x, double y, double z, float volume, float pitch) {
-			for (Pair<SoundEvent, Couple<Float>> pair : compiledEvents) {
-				Couple<Float> volPitch = pair.getSecond();
-				world.playSound(entity, x, y, z, pair.getFirst(), category, volPitch.getFirst() * volume,
-					volPitch.getSecond() * pitch);
+			for (CompiledSoundEvent event : compiledEvents) {
+				world.playSound(entity, x, y, z, event.event().get(), category, event.volume() * volume,
+					event.pitch() * pitch);
 			}
 		}
 
 		@Override
 		public void playAt(Level world, double x, double y, double z, float volume, float pitch, boolean fade) {
-			for (Pair<SoundEvent, Couple<Float>> pair : compiledEvents) {
-				Couple<Float> volPitch = pair.getSecond();
-				world.playLocalSound(x, y, z, pair.getFirst(), category, volPitch.getFirst() * volume,
-					volPitch.getSecond() * pitch, fade);
+			for (CompiledSoundEvent event : compiledEvents) {
+				world.playLocalSound(x, y, z, event.event().get(), category, event.volume() * volume,
+					event.pitch() * pitch, fade);
 			}
 		}
+
+		private record CompiledSoundEvent(RegistryObject<SoundEvent> event, float volume, float pitch) {
+		}
+
 	}
 
 	private static class CustomSoundEntry extends SoundEntry {
 
 		protected List<ResourceLocation> variants;
-		protected SoundEvent event;
+		protected RegistryObject<SoundEvent> event;
 
-		public CustomSoundEntry(ResourceLocation id, List<ResourceLocation> variants, String subtitle, SoundSource category) {
-			super(id, subtitle, category);
+		public CustomSoundEntry(ResourceLocation id, List<ResourceLocation> variants, String subtitle,
+			SoundSource category, int attenuationDistance) {
+			super(id, subtitle, category, attenuationDistance);
 			this.variants = variants;
 		}
 
 		@Override
 		public void prepare() {
-			event = new SoundEvent(id).setRegistryName(id);
+			event = RegistryObject.create(id, ForgeRegistries.SOUND_EVENTS);
 		}
 
 		@Override
 		public void register(IForgeRegistry<SoundEvent> registry) {
-			registry.register(event);
+			ResourceLocation location = event.getId();
+			registry.register(new SoundEvent(location).setRegistryName(location));
 		}
 
 		@Override
 		public SoundEvent getMainEvent() {
-			return event;
+			return event.get();
 		}
 
 		@Override
@@ -555,24 +653,36 @@ public class AllSoundEvents {
 			JsonObject entry = new JsonObject();
 			JsonArray list = new JsonArray();
 
-			list.add(id.toString());
+			JsonObject s = new JsonObject();
+			s.addProperty("name", id.toString());
+			s.addProperty("type", "file");
+			if (attenuationDistance != 0)
+				s.addProperty("attenuation_distance", attenuationDistance);
+			list.add(s);
+
 			for (ResourceLocation variant : variants) {
-				list.add(variant.toString());
+				s = new JsonObject();
+				s.addProperty("name", variant.toString());
+				s.addProperty("type", "file");
+				if (attenuationDistance != 0)
+					s.addProperty("attenuation_distance", attenuationDistance);
+				list.add(s);
 			}
 
 			entry.add("sounds", list);
-			entry.addProperty("subtitle", getSubtitleKey());
+			if (hasSubtitle())
+				entry.addProperty("subtitle", getSubtitleKey());
 			json.add(id.getPath(), entry);
 		}
 
 		@Override
 		public void play(Level world, Player entity, double x, double y, double z, float volume, float pitch) {
-			world.playSound(entity, x, y, z, event, category, volume, pitch);
+			world.playSound(entity, x, y, z, event.get(), category, volume, pitch);
 		}
 
 		@Override
 		public void playAt(Level world, double x, double y, double z, float volume, float pitch, boolean fade) {
-			world.playLocalSound(x, y, z, event, category, volume, pitch, fade);
+			world.playLocalSound(x, y, z, event.get(), category, volume, pitch, fade);
 		}
 
 	}
